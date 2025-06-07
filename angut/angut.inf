@@ -1,0 +1,62 @@
+;
+; angut.inf
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = System ; TODO: specify appropriate Class
+ClassGuid   = {4d36e97d-e325-11ce-bfc1-08002be10318} ; TODO: specify appropriate ClassGuid
+Provider    = %ManufacturerName%
+CatalogFile = angut.cat
+DriverVer   = ; TODO: set DriverVer in stampinf property pages
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+angut.sys = 1,,
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName% = Standard,NT$ARCH$.10.0...16299 ; %13% support introduced in build 16299
+
+[Standard.NT$ARCH$.10.0...16299]
+%angut.DeviceDesc% = angut_Device, Root\angut ; TODO: edit hw-id
+
+[angut_Device.NT]
+CopyFiles = File_Copy
+
+[File_Copy]
+angut.sys
+
+;-------------- Service installation
+[angut_Device.NT.Services]
+AddService = angut,%SPSVCINST_ASSOCSERVICE%, angut_Service_Inst
+
+; -------------- angut driver install sections
+[angut_Service_Inst]
+DisplayName    = %angut.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\angut.sys
+
+[angut_Device.NT.Wdf]
+KmdfService = angut, angut_wdfsect
+
+[angut_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+SPSVCINST_ASSOCSERVICE = 0x00000002
+ManufacturerName = "<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+DiskName = "angut Installation Disk"
+angut.DeviceDesc = "angut Device"
+angut.SVCDESC = "angut Service"
