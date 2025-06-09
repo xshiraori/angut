@@ -132,6 +132,7 @@
   <ItemGroup>
     <ClInclude Include="handlers\callback_handler.hpp" />
     <ClInclude Include="handlers\memory_handler.hpp" />
+    <ClInclude Include="handlers\process_handler.hpp" />
     <ClInclude Include="os_specific\nt_internals.hpp" />
     <ClInclude Include="service\callbacks.hpp" />
     <ClInclude Include="service\communication.hpp" />

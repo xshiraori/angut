@@ -44,6 +44,17 @@ struct patch_callback_request
     std::uintptr_t callback_address;
 };
 
+struct create_user_handle_request
+{
+    std::uint32_t processId;
+    ACCESS_MASK desiredAccess;
+};
+
+struct create_user_handle_response
+{
+    HANDLE handle;
+};
+
 #pragma pack(pop)
 
 // Updated driver.hpp - add error checking
@@ -62,6 +73,8 @@ namespace utils::driver {
 #define IOCTL_ENUMERATE_DRIVERS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_ENUMERATE_CALLBACKS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_PATCH_CALLBACK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x804, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_DELETE_CALLBACK_PATCH CTL_CODE(FILE_DEVICE_UNKNOWN, 0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_CREATE_MANUAL_HANDLE CTL_CODE(FILE_DEVICE_UNKNOWN, 0x806, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
     bool init()
     {

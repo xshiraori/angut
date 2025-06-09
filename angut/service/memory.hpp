@@ -4,28 +4,45 @@
 #include <cstdint>
 
 namespace memory {
+    namespace OFFSETS {
+        namespace WIN10
+        {
+			const std::uint64_t EPROCESS_TO_HANDLE_TABLE = 0x570; // Offset to the handle table in EPROCESS structure
+        }
+    }
+
+
     struct hook_info {
         void* original_function;
         void* hook_function;
     };
 
-    struct patch_info {
-        void* address;
-		unsigned char patch_bytes[64];
-		unsigned char original_bytes[64];
-		size_t patch_size;
-    };
-
     class patch_manager {
     public:
+        struct patch_info {
+            void* address;
+            unsigned char patch_bytes[64];
+            unsigned char original_bytes[64];
+            size_t patch_size;
+            char tag[16];
+        };
+
         static patch_manager& get_instance() {
             static patch_manager instance;
             return instance;
         }
-        void add_patch(const patch_info& patch) {
+
+        void add_patch(void* address, void* patch_bytes, void* original_bytes, size_t length, const char* tag = nullptr) {
             for (int i = 0; i < 64; ++i) {
                 if (m_availablePathces[i].address == nullptr) {
-                    m_availablePathces[i] = patch;
+					m_availablePathces[i].address = address;
+					RtlCopyMemory(m_availablePathces[i].patch_bytes, patch_bytes, length);
+					RtlCopyMemory(m_availablePathces[i].original_bytes, original_bytes, length);
+					m_availablePathces[i].patch_size = length;
+                    if (tag) {
+                        strncpy_s(m_availablePathces[i].tag, tag, sizeof(m_availablePathces[i].tag) - 1);
+                        m_availablePathces[i].tag[sizeof(m_availablePathces[i].tag) - 1] = '\0';
+                    }
                     return;
                 }
             }
@@ -35,20 +52,50 @@ namespace memory {
             for (int i = 0; i < 64; ++i) {
                 if (m_availablePathces[i].address == address)
                 {
-                    m_availablePathces[i] = patch_info(); // Reset the patch info
+                    m_availablePathces[i] = patch_info();
                     return;
                 }
             }
         }
+
+		void remove_patch_by_tag(const char* tag) {
+			for (int i = 0; i < 64; ++i) {
+				if (m_availablePathces[i].tag && strcmp(m_availablePathces[i].tag, tag) == 0) {
+					m_availablePathces[i] = patch_info();
+					return;
+				}
+			}
+		}
+
+		patch_info get_patch_by_tag(const char* tag) const {
+			for (int i = 0; i < 64; ++i) {
+				if (m_availablePathces[i].tag && strcmp(m_availablePathces[i].tag, tag) == 0) {
+					return m_availablePathces[i];
+				}
+			}
+			return patch_info();
+		}
+
+		patch_info get_patch_by_address(void* address) const {
+			for (int i = 0; i < 64; ++i) {
+				if (m_availablePathces[i].address == address) {
+					return m_availablePathces[i];
+				}
+			}
+			return patch_info();
+		}
+
+		const patch_info* get_all_patches() const {
+			return m_availablePathces;
+		}
+
     private:
         patch_manager() = default;
         ~patch_manager() = default;
         patch_manager(const patch_manager&) = delete;
         patch_manager& operator=(const patch_manager&) = delete;
-        patch_info m_availablePathces[64]; // Array to hold available patches
-    };
-    
-    patch_manager g_patchManager;
+        patch_info m_availablePathces[8];
+    };    
 
     template<typename T>
     bool write_to_read_only_memory(PVOID address, T value) 

@@ -5,6 +5,7 @@
 #include <communication.hpp>
 #include <memory_handler.hpp>
 #include <callback_handler.hpp>
+#include <process_handler.hpp>
 
 static const UNICODE_STRING g_DeviceName =
 RTL_CONSTANT_STRING(L"\\Device\\angut");
@@ -109,6 +110,46 @@ MemDispatchDeviceControl(
             );
 
         ioctl::handler::handle_patch_callback_request(
+            req,
+            outLen,
+            status,
+            info
+        );
+        break;
+    }
+	case IOCTL_DELETE_CALLBACK_PATCH:
+	{
+		if (outLen < sizeof(ioctl::handler::patch_callback_request))
+		{
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		auto req = reinterpret_cast<ioctl::handler::patch_callback_request*>(
+			Irp->AssociatedIrp.SystemBuffer
+		);
+
+		ioctl::handler::handle_callback_delete_request(
+			req,
+			outLen,
+			status,
+			info
+		);
+		break;
+	}
+    case IOCTL_CREATE_MANUAL_HANDLE:
+    {
+        if (outLen < sizeof(ioctl::handler::create_user_handle_request))
+        {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+
+        auto req = reinterpret_cast<ioctl::handler::create_user_handle_request*>(
+            Irp->AssociatedIrp.SystemBuffer
+            );
+
+        ioctl::handler::handle_process_create_user_handle(
             req,
             outLen,
             status,

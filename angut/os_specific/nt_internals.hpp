@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <ntifs.h>
 
 typedef enum _SYSTEM_INFORMATION_CLASS {
@@ -11,6 +11,63 @@ extern "C" NTSTATUS ZwQuerySystemInformation(
       ULONG                    SystemInformationLength,
       PULONG                   ReturnLength
 );
+
+typedef struct _EX_HANDLE
+{
+    union {
+        ULONG64 TagBits : 2;
+        ULONG64 Index : 30;
+        HANDLE Value;
+    };
+}EXHANDLE, *PEXHANDLE;
+
+typedef struct _HANDLE_TABLE_ENTRY {
+    union {
+        ULONG64 VolatileLowValue;
+        struct {
+            ULONG64 Unlocked : 1;   // user-mode lookup must see it → 1
+            ULONG64 RefCnt : 16;  // reference count
+            ULONG64 Attributes : 3;   // no OBJ_KERNEL_HANDLE → 0
+            ULONG64 ObjectPointerBits : 44;  // pointer >> 3
+        };
+    };
+    union {
+        ULONG64 LeafHandleValue;
+        struct {
+            ULONG64 GrantedAccessBits : 25;  // DesiredAccess
+            ULONG64 NoRightsUpgrade : 1;
+            ULONG64 Spare1 : 6;
+        };
+    };
+    ULONG Spare2;
+} HANDLE_TABLE_ENTRY, * PHANDLE_TABLE_ENTRY;
+
+typedef struct _HANDLE_TABLE {
+    ULONG               NextHandleNeedingPool;
+    LONG                ExtraInfoPages;
+    ULONG64             TableCode;            // seed for handle value
+    PEPROCESS           QuotaProcess;
+    LIST_ENTRY          HandleTableList;
+    ULONG               UniqueProcessId;
+    ULONG               Flags;
+    EX_PUSH_LOCK        HandleContentionEvent;
+    EX_PUSH_LOCK        HandleTableLock;
+    UCHAR               ActualEntry[ANYSIZE_ARRAY];
+} HANDLE_TABLE, * PHANDLE_TABLE;
+
+typedef
+HANDLE
+(*PFN_EXCREATEHANDLE)(
+    _In_ struct _HANDLE_TABLE* HandleTable,
+    _In_ struct _HANDLE_TABLE_ENTRY* HandleEntry
+    );
+
+typedef
+PHANDLE_TABLE_ENTRY
+(*PFN_EXPALLOCATEHANDLETABLEENTRY)(
+    IN PHANDLE_TABLE HandleTable,
+    OUT PEXHANDLE NewHandle
+    );
 
 extern "C" NTSTATUS
 MmCopyVirtualMemory(

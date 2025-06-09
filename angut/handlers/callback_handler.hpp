@@ -113,14 +113,24 @@ namespace ioctl::handler {
            return;
        }
 
-       unsigned char patch_bytes[12] = {
+       unsigned char patch_bytes[12] = 
+       {
            0x48, 0xB8,                                    // mov rax,
            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // immediate64 (newAddress)
            0xFF, 0xE0                                     // jmp rax
        };
 
-       // insert the new address into the patch
        *reinterpret_cast<std::uintptr_t*>(&patch_bytes[2]) = reinterpret_cast<std::uintptr_t>(&callbacks::NoOpOperationCallback);
+
+       auto& patch_manager = memory::patch_manager::get_instance();
+
+	   patch_manager.add_patch(
+		   reinterpret_cast<void*>(callback_address),
+		   patch_bytes,
+           reinterpret_cast<void*>(callback_address),
+		   12,
+		   "CallbackPatch"
+	   );
 
 	   utils::logger::debug("Patching callback at address: 0x%llx with new address: 0x%llx\n",
 		   callback_address, reinterpret_cast<std::uintptr_t>(&callbacks::NoOpOperationCallback));
@@ -145,5 +155,62 @@ namespace ioctl::handler {
        status = STATUS_SUCCESS;
        info = 0;
     }
+
+
+	void handle_callback_delete_request(
+		patch_callback_request* req,
+		size_t bufferLength,
+		NTSTATUS& status,
+		ULONG_PTR& info
+	)
+	{
+		auto callback_address = req->callback_address;
+		bool callback_found = false;
+		auto callback_type = static_cast<callbacks::callback_type>(req->callback_type);
+
+		auto _ = [&](callbacks::callback_information cbArray[], size_t cbCount)
+		{
+			for (size_t i = 0; i < cbCount; i++)
+			{
+				if (cbArray[i].callback_address == callback_address)
+				{
+					callback_found = true;
+				}
+			}
+		};
+
+		callbacks::enumerate_object_callbacks(callback_type, _);
+		if (!callback_found)
+		{
+			status = STATUS_NOT_FOUND;
+			return;
+		}
+
+        auto& patch_manager = memory::patch_manager::get_instance();
+
+		auto patch_info = patch_manager.get_patch_by_address(reinterpret_cast<void*>(callback_address));
+		if (!patch_info.patch_size)
+		{
+			utils::logger::debug("Patch not found for address: 0x%llx\n", callback_address);
+			status = STATUS_NOT_FOUND;
+			return;
+		}
+
+        if (!memory::write_to_read_only_memory(
+            reinterpret_cast<void*>(callback_address),
+            patch_info.original_bytes,
+            patch_info.patch_size
+        ))
+        {
+			utils::logger::debug("Failed to restore original bytes at address: 0x%llx\n", callback_address);
+            status = STATUS_ABANDONED;
+            return;
+        }
+
+        patch_manager.remove_patch(reinterpret_cast<void*>(callback_address));
+		utils::logger::debug("Removing patch at address: 0x%llx\n", callback_address);
+		status = STATUS_SUCCESS;
+		info = 0;
+	}
 }
 
