@@ -66,7 +66,7 @@ namespace callbacks {
         PVOID OperationInformation
     )
     {
-		utils::logger::debug("NoOpOperationCallback called with RegistrationContext: %p, OperationInformation: %p\n",
+		ang_debug("NoOpOperationCallback called with RegistrationContext: %p, OperationInformation: %p\n",
 			RegistrationContext, OperationInformation);
     }
 

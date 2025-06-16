@@ -101,9 +101,10 @@
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
     <ClCompile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <AdditionalIncludeDirectories>C:\Users\Dou\source\repos\angut\angut\handlers;C:\Users\Dou\source\repos\angut\angut\service;C:\Users\Dou\source\repos\angut\angut\os_specific;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ControlFlowGuard>false</ControlFlowGuard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -125,8 +126,11 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="service\callbacks.cpp" />
+    <ClCompile Include="service\constants.cpp" />
+    <ClCompile Include="service\hooks.cpp" />
     <ClCompile Include="service\memory.cpp" />
     <ClCompile Include="service\process.cpp" />
+    <ClCompile Include="service\ssdt.cpp" />
     <ClCompile Include="service\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -136,8 +140,12 @@
     <ClInclude Include="os_specific\nt_internals.hpp" />
     <ClInclude Include="service\callbacks.hpp" />
     <ClInclude Include="service\communication.hpp" />
+    <ClInclude Include="service\constants.hpp" />
+    <ClInclude Include="service\hooks.hpp" />
     <ClInclude Include="service\memory.hpp" />
     <ClInclude Include="service\process.hpp" />
+    <ClInclude Include="service\ssdt.hpp" />
+    <ClInclude Include="service\state.hpp" />
     <ClInclude Include="service\utils.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

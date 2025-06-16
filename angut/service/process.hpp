@@ -9,4 +9,6 @@ namespace process {
 		ACCESS_MASK desired_access,
 		PHANDLE out_handle
 	);
+
+	NTSTATUS get_process_base(std::uint32_t process_id, std::uint64_t& base_address);
 }

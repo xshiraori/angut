@@ -22,7 +22,9 @@ namespace ioctl::handler {
 		std::uintptr_t callback_address;
 	};
 
-    void handle_callback_enumerate_request(
+	typedef patch_callback_request callback_delete_request;
+
+    void handle_enumerate_callbacks_request(
         enumerate_callbacks_request* req,
         size_t bufferLength,
         NTSTATUS& status,
@@ -132,7 +134,7 @@ namespace ioctl::handler {
 		   "CallbackPatch"
 	   );
 
-	   utils::logger::debug("Patching callback at address: 0x%llx with new address: 0x%llx\n",
+	   ang_debug("Patching callback at address: 0x%llx with new address: 0x%llx\n",
 		   callback_address, reinterpret_cast<std::uintptr_t>(&callbacks::NoOpOperationCallback));
 
        bool success = memory::write_to_read_only_memory(
@@ -143,12 +145,12 @@ namespace ioctl::handler {
 
        if (success) 
        {
-           utils::logger::debug("SUCCESS: Patch applied using write_to_read_only_memory!\n");
+           ang_debug("SUCCESS: Patch applied using write_to_read_only_memory!\n");
            status = STATUS_SUCCESS;
        }
        else 
        {
-           utils::logger::debug("ERROR: Failed to apply patch\n");
+           ang_debug("ERROR: Failed to apply patch\n");
            status = STATUS_ACCESS_VIOLATION;
        }
 
@@ -158,7 +160,7 @@ namespace ioctl::handler {
 
 
 	void handle_callback_delete_request(
-		patch_callback_request* req,
+        callback_delete_request* req,
 		size_t bufferLength,
 		NTSTATUS& status,
 		ULONG_PTR& info
@@ -191,7 +193,7 @@ namespace ioctl::handler {
 		auto patch_info = patch_manager.get_patch_by_address(reinterpret_cast<void*>(callback_address));
 		if (!patch_info.patch_size)
 		{
-			utils::logger::debug("Patch not found for address: 0x%llx\n", callback_address);
+			ang_debug("Patch not found for address: 0x%llx\n", callback_address);
 			status = STATUS_NOT_FOUND;
 			return;
 		}
@@ -202,13 +204,13 @@ namespace ioctl::handler {
             patch_info.patch_size
         ))
         {
-			utils::logger::debug("Failed to restore original bytes at address: 0x%llx\n", callback_address);
+			ang_debug("Failed to restore original bytes at address: 0x%llx\n", callback_address);
             status = STATUS_ABANDONED;
             return;
         }
 
         patch_manager.remove_patch(reinterpret_cast<void*>(callback_address));
-		utils::logger::debug("Removing patch at address: 0x%llx\n", callback_address);
+		ang_debug("Removing patch at address: 0x%llx\n", callback_address);
 		status = STATUS_SUCCESS;
 		info = 0;
 	}

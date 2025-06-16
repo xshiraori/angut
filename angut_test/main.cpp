@@ -51,6 +51,25 @@ void send_patch_delete_req(std::uintptr_t targetCallback)
 	}
 }
 
+std::uint64_t send_get_process_base_req(std::uint32_t processId)
+{
+	auto buffer = malloc(0x2000);
+	memset(buffer, 0, 0x2000);
+	auto req = reinterpret_cast<get_process_info_request*>(buffer);
+	req->process_id = processId;
+	if (!utils::driver::do_ioctl(IOCTL_GET_PROCESS_INFO, req, 0x2000))
+	{
+		printf("Failed to get process base for process %u\n", processId);
+		return 0;
+	}
+	else
+	{
+		auto resp = reinterpret_cast<get_process_info_response*>(buffer);
+		printf("Process %u main module base address: 0x%llx\n", processId, resp->base_address);
+		return resp->base_address;
+	}
+}
+
 void send_open_handle_req(std::uint32_t processId, ACCESS_MASK desiredAccess)
 {
 	auto buffer = malloc(0x2000);
@@ -71,9 +90,15 @@ void send_open_handle_req(std::uint32_t processId, ACCESS_MASK desiredAccess)
 
 		// test out the handle
 		HANDLE hProcess = resp->handle;
-		auto base = utils::GetProcessModuleBase(processId);
+		
+		auto base = send_get_process_base_req(processId);
+		if (!base)
+		{
+			return;
+		}
+
 		SHORT magic_header;
-		if (ReadProcessMemory(hProcess, base, &magic_header, sizeof(magic_header), nullptr))
+		if (ReadProcessMemory(hProcess, reinterpret_cast<PVOID>(base), &magic_header, sizeof(magic_header), nullptr))
 		{
 			printf("Successfully read memory from process %u at base 0x%p: magic header = 0x%x\n", processId, base, magic_header);
 		}
@@ -83,6 +108,19 @@ void send_open_handle_req(std::uint32_t processId, ACCESS_MASK desiredAccess)
 		}
 	}
 }
+
+void send_select_target_process_req(std::uint32_t processId)
+{
+	if (!utils::driver::do_ioctl(IOCTL_SELECT_TARGET_PROCESS, &processId, 4))
+	{
+		printf("Failed to select target process %u\n", processId);
+	}
+	else
+	{
+		printf("Target process %u selected successfully!\n", processId);
+	}
+}
+
 
 class cli {
 public:
@@ -113,7 +151,10 @@ public:
 		std::cout << "2. Patch an existing callback" << std::endl;
 		std::cout << "3. Remove the patch from the callback" << std::endl;
 		std::cout << "4. Open handle from kernel mode" << std::endl;
-		std::cout << "5. Exit" << std::endl;
+		std::cout << "5. Get process main module base" << std::endl;
+		std::cout << "6. Select target process for handle operations" << std::endl;
+		std::cout << "7. Exit" << std::endl;
+
 		int choice;
 		while (true)
 		{
@@ -177,7 +218,27 @@ public:
 				break;
 			}
 			case 5:
+			{
+				std::uint32_t processId;
+				std::cout << "Enter Process ID to get main module base: ";
+				std::cin >> processId;
+
+				send_get_process_base_req(processId);
+				break;
+			}
+			case 6:
+			{
+				std::uint32_t processId;
+				std::cout << "Enter Process ID to select as target: ";
+				std::cin >> processId;
+				send_select_target_process_req(processId);
+				break;
+			}
+			case 7:
+			{
+				std::cout << "Exiting Angut CLI. Goodbye!" << std::endl;
 				return;
+			}
 			default:
 				std::cout << "Invalid choice, please try again." << std::endl;
 			}

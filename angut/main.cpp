@@ -6,17 +6,29 @@
 #include <memory_handler.hpp>
 #include <callback_handler.hpp>
 #include <process_handler.hpp>
+#include <ssdt.hpp>
+#include <state.hpp>
+#include <hooks.hpp>
 
 static const UNICODE_STRING g_DeviceName =
 RTL_CONSTANT_STRING(L"\\Device\\angut");
 static const UNICODE_STRING g_SymbolicLink =
 RTL_CONSTANT_STRING(L"\\DosDevices\\angut");
 
+#define HANDLE_IOCTL(request_type, req, outLen, status, info) \
+    if (outLen < sizeof(ioctl::handler::request_type)) { \
+        status = STATUS_BUFFER_TOO_SMALL; \
+        break; \
+    } \
+    auto req = reinterpret_cast<ioctl::handler::request_type*>(Irp->AssociatedIrp.SystemBuffer); \
+    ioctl::handler::handle_##request_type(req, outLen, status, info); \
+
 extern "C" VOID
 DriverUnload(
     _In_ PDRIVER_OBJECT DriverObject
 )
 {
+    memory::ssdt::cleanup();
     UNICODE_STRING symLink = static_cast<UNICODE_STRING>(g_SymbolicLink);
     IoDeleteSymbolicLink(&symLink);
     IoDeleteDevice(DriverObject->DeviceObject);
@@ -52,115 +64,55 @@ MemDispatchDeviceControl(
     NTSTATUS            status = STATUS_INVALID_DEVICE_REQUEST;
     ULONG_PTR           info = 0;
 
-    utils::logger::debug("received ioctl %x!\n", code);
+    ang_debug("Received IOCTL: %x!\n", code);
 
     switch (code)
     {
-    case IOCTL_READ_PROCESS_MEMORY:
-    case IOCTL_WRITE_PROCESS_MEMORY:
-    {
-        if (inLen < sizeof(ioctl::handler::memory_copy_request))
+        case IOCTL_READ_PROCESS_MEMORY:
         {
-            status = STATUS_BUFFER_TOO_SMALL;
-            goto Complete;
-        }
-
-        auto req = reinterpret_cast<ioctl::handler::memory_copy_request*>(Irp->AssociatedIrp.SystemBuffer);
-
-        if (code == IOCTL_READ_PROCESS_MEMORY)
-        {
-            ioctl::handler::handle_memory_read_request(*req, status);
-        }
-        else
-        {
-            ioctl::handler::handle_memory_write_request(*req, status);
-        }
-        break;
-    }
-    case IOCTL_ENUMERATE_CALLBACKS:
-    {
-        if (outLen < sizeof(ioctl::handler::enumerate_callbacks_response)) 
-        {
-            status = STATUS_BUFFER_TOO_SMALL;
+		    HANDLE_IOCTL(memory_read_request, req, outLen, status, info);
             break;
         }
-
-        auto req = reinterpret_cast<ioctl::handler::enumerate_callbacks_request*>(
-            Irp->AssociatedIrp.SystemBuffer
-            );
-
-        ioctl::handler::handle_callback_enumerate_request(
-            req,
-            outLen,
-            status,
-            info
-        );
-        break;
-    }
-    case IOCTL_PATCH_CALLBACK:
-    {
-        if (outLen < sizeof(ioctl::handler::patch_callback_request)) 
+        case IOCTL_WRITE_PROCESS_MEMORY:
         {
-            status = STATUS_BUFFER_TOO_SMALL;
+            HANDLE_IOCTL(memory_write_request, req, outLen, status, info);
             break;
         }
-
-        auto req = reinterpret_cast<ioctl::handler::patch_callback_request*>(
-            Irp->AssociatedIrp.SystemBuffer
-            );
-
-        ioctl::handler::handle_patch_callback_request(
-            req,
-            outLen,
-            status,
-            info
-        );
-        break;
-    }
-	case IOCTL_DELETE_CALLBACK_PATCH:
-	{
-		if (outLen < sizeof(ioctl::handler::patch_callback_request))
-		{
-			status = STATUS_BUFFER_TOO_SMALL;
+        case IOCTL_ENUMERATE_CALLBACKS:
+        {
+            HANDLE_IOCTL(enumerate_callbacks_request, req, outLen, status, info);
+            break;
+        }
+        case IOCTL_PATCH_CALLBACK:
+        {
+            HANDLE_IOCTL(patch_callback_request, req, outLen, status, info);
+            break;
+        }
+	    case IOCTL_DELETE_CALLBACK_PATCH:
+	    {
+            HANDLE_IOCTL(callback_delete_request, req, outLen, status, info);
+            break;
+	    }
+        case IOCTL_CREATE_MANUAL_HANDLE:
+        {
+            HANDLE_IOCTL(create_user_handle_request, req, outLen, status, info);
+            break;
+        }
+	    case IOCTL_GET_PROCESS_INFO:
+	    {
+		    HANDLE_IOCTL(get_process_info_request, req, outLen, status, info);
+            break;
+	    }
+        case IOCTL_SELECT_TARGET_PROCESS:
+        {
+			HANDLE_IOCTL(select_target_process_request, req, outLen, status, info);
 			break;
-		}
-
-		auto req = reinterpret_cast<ioctl::handler::patch_callback_request*>(
-			Irp->AssociatedIrp.SystemBuffer
-		);
-
-		ioctl::handler::handle_callback_delete_request(
-			req,
-			outLen,
-			status,
-			info
-		);
-		break;
-	}
-    case IOCTL_CREATE_MANUAL_HANDLE:
-    {
-        if (outLen < sizeof(ioctl::handler::create_user_handle_request))
-        {
-            status = STATUS_BUFFER_TOO_SMALL;
-            break;
         }
 
-        auto req = reinterpret_cast<ioctl::handler::create_user_handle_request*>(
-            Irp->AssociatedIrp.SystemBuffer
-            );
-
-        ioctl::handler::handle_process_create_user_handle(
-            req,
-            outLen,
-            status,
-            info
-        );
-        break;
-    }
-    default:
-    {
-        status = STATUS_INVALID_DEVICE_REQUEST;
-    }
+        default:
+        {
+            status = STATUS_INVALID_DEVICE_REQUEST;
+        }
     }
 Complete:
     Irp->IoStatus.Status = status;
@@ -168,6 +120,7 @@ Complete:
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
     return status;
 }
+
 
 extern "C"
 NTSTATUS
@@ -206,6 +159,19 @@ DriverEntry(
         IoDeleteDevice(deviceObject);
         return status;
     }
+
+	status = memory::initialize_constants();
+
+    // hook NtQuerySystemInformation
+    g_oldFunction = memory::ssdt::get_function_by_entry<decltype(NtQuerySystemInformation_hook)>(0x36);
+    memory::ssdt::hook_single_entry(0x36, NtQuerySystemInformation_hook, g_oldFunction);
+
+	if (!NT_SUCCESS(status))
+	{
+		IoDeleteSymbolicLink(const_cast<UNICODE_STRING*>(&g_SymbolicLink));
+		IoDeleteDevice(deviceObject);
+		return status;
+	}
 
     DriverObject->MajorFunction[IRP_MJ_CREATE] = MemDispatchCreateClose;
     DriverObject->MajorFunction[IRP_MJ_CLOSE] = MemDispatchCreateClose;

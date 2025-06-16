@@ -1,5 +1,6 @@
 #include <memory.hpp>
 #include <utils.hpp>
+#include <intrin.h>
 
 namespace memory::module 
 {
@@ -37,6 +38,11 @@ namespace memory::process
 
 namespace memory
 {
+	namespace CONSTANTS::UNDOCUMENTED
+	{
+		PFN_EXPALLOCATEHANDLETABLEENTRY ExpAllocateHandleTableEntry = nullptr;
+	}
+
 	bool write_to_read_only_memory(PVOID address, const void* data, SIZE_T size) {
 		PMDL mdl = IoAllocateMdl(address, size, FALSE, FALSE, NULL);
 		if (!mdl) 
@@ -73,4 +79,19 @@ namespace memory
 
 		return true;
 	}
+
+	void disable_wp() {
+		ULONG_PTR cr0 = __readcr0();
+		cr0 &= ~0x10000; 
+		__writecr0(cr0);
+	}
+
+	void enable_wp() {
+		ULONG_PTR cr0 = __readcr0();
+		cr0 |= 0x10000;
+		__writecr0(cr0);
+	}
+
+
+	
 }

@@ -55,6 +55,17 @@ struct create_user_handle_response
     HANDLE handle;
 };
 
+struct get_process_info_request
+{
+	std::uint32_t process_id;
+};
+
+struct get_process_info_response
+{
+	std::uint64_t base_address;
+};
+
+
 #pragma pack(pop)
 
 // Updated driver.hpp - add error checking
@@ -75,6 +86,8 @@ namespace utils::driver {
 #define IOCTL_PATCH_CALLBACK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x804, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_DELETE_CALLBACK_PATCH CTL_CODE(FILE_DEVICE_UNKNOWN, 0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_CREATE_MANUAL_HANDLE CTL_CODE(FILE_DEVICE_UNKNOWN, 0x806, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_GET_PROCESS_INFO CTL_CODE(FILE_DEVICE_UNKNOWN, 0x807, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_SELECT_TARGET_PROCESS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x808, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
     bool init()
     {

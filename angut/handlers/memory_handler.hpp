@@ -13,35 +13,44 @@ namespace ioctl::handler {
         std::uint64_t Size;
     };
 
-    void handle_memory_write_request(memory_copy_request req, long& err)
+	typedef memory_copy_request memory_read_request;
+	typedef memory_copy_request memory_write_request;
+
+    void handle_memory_write_request(memory_write_request* req, size_t bufferLength,
+        NTSTATUS& status,
+        ULONG_PTR& info)
     {
         PEPROCESS  targetProcess = nullptr;
-        err = PsLookupProcessByProcessId(
-            reinterpret_cast<HANDLE>(UIntToPtr(req.ProcessId)),
+        status = PsLookupProcessByProcessId(
+            reinterpret_cast<HANDLE>(UIntToPtr(req->ProcessId)),
             &targetProcess
         );
 
-        if (!NT_SUCCESS(err)) {
+        if (!NT_SUCCESS(status)) 
+        {
             return;
         }
 
-        err = memory::process::write_memory(IoGetCurrentProcess(), req.Buffer, targetProcess, req.Address, req.Size);
+        status = memory::process::write_memory(IoGetCurrentProcess(), req->Buffer, targetProcess, req->Address, req->Size);
         ObDereferenceObject(targetProcess);
     }
 
-    void handle_memory_read_request(memory_copy_request req, long& err)
+    void handle_memory_read_request(memory_read_request* req, size_t bufferLength,
+        NTSTATUS& status,
+        ULONG_PTR& info)
     {
         PEPROCESS  targetProcess = nullptr;
-        err = PsLookupProcessByProcessId(
-            reinterpret_cast<HANDLE>(UIntToPtr(req.ProcessId)),
+        status = PsLookupProcessByProcessId(
+            reinterpret_cast<HANDLE>(UIntToPtr(req->ProcessId)),
             &targetProcess
         );
 
-        if (!NT_SUCCESS(err)) {
+        if (!NT_SUCCESS(status)) 
+        {
             return;
         }
 
-        err = memory::process::read_memory(targetProcess, req.Address, IoGetCurrentProcess(), req.Buffer, req.Size);
+        status = memory::process::read_memory(targetProcess, req->Address, IoGetCurrentProcess(), req->Buffer, req->Size);
         ObDereferenceObject(targetProcess);
     }
 }
