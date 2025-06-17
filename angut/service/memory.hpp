@@ -58,6 +58,8 @@ namespace memory {
         return STATUS_NOT_FOUND;
 	}
 
+    NTSTATUS map_and_write(PVOID destination, PVOID source, SIZE_T size);
+
     void disable_wp();
 
     void enable_wp();
@@ -80,8 +82,6 @@ namespace memory {
         ang_debug("ExpAllocateHandleTableEntry found at %p\n", memory::CONSTANTS::UNDOCUMENTED::ExpAllocateHandleTableEntry);
         return STATUS_SUCCESS;
     }
-
-
 
     struct hook_info {
         void* original_function;
@@ -484,4 +484,11 @@ namespace memory {
         }
     };
 
+    template<typename Func>
+    void execute_wp_disabled(Func function)
+    {
+		disable_wp();
+		function();
+		enable_wp();
+    }
 }

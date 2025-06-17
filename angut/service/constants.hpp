@@ -12,8 +12,11 @@ namespace memory::CONSTANTS
         static const std::uint64_t OBJECT_TO_HEADER = 0x30;
 
         static const UCHAR ExpAllocateHandleTableEntry_prologue_pattern[35];
-
         static const UCHAR KiSystemServiceRepeat[21];
+
+		static const std::uint16_t NtOpenProcess_Index = 0x26; // Index of NtOpenProcess in the SSDT
+		static const std::uint16_t NtQuerySystemInformation_Index = 0x33; // Index of NtQuerySystemInformation in the SSDT
+		static const std::uint16_t NtReadFile_Index = 0x6; // Index of NtReadFile in the SSDT
     };
 }
 

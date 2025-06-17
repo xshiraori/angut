@@ -89,5 +89,11 @@
     <ClInclude Include="service\hooks.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="handlers\settings_handler.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="service\bump.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

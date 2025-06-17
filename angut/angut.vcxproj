@@ -137,7 +137,9 @@
     <ClInclude Include="handlers\callback_handler.hpp" />
     <ClInclude Include="handlers\memory_handler.hpp" />
     <ClInclude Include="handlers\process_handler.hpp" />
+    <ClInclude Include="handlers\settings_handler.hpp" />
     <ClInclude Include="os_specific\nt_internals.hpp" />
+    <ClInclude Include="service\bump.hpp" />
     <ClInclude Include="service\callbacks.hpp" />
     <ClInclude Include="service\communication.hpp" />
     <ClInclude Include="service\constants.hpp" />

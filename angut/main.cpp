@@ -9,11 +9,10 @@
 #include <ssdt.hpp>
 #include <state.hpp>
 #include <hooks.hpp>
+#include <settings_handler.hpp>
 
-static const UNICODE_STRING g_DeviceName =
-RTL_CONSTANT_STRING(L"\\Device\\angut");
-static const UNICODE_STRING g_SymbolicLink =
-RTL_CONSTANT_STRING(L"\\DosDevices\\angut");
+static const UNICODE_STRING g_DeviceName = RTL_CONSTANT_STRING(L"\\Device\\angut");
+static const UNICODE_STRING g_SymbolicLink = RTL_CONSTANT_STRING(L"\\DosDevices\\angut");
 
 #define HANDLE_IOCTL(request_type, req, outLen, status, info) \
     if (outLen < sizeof(ioctl::handler::request_type)) { \
@@ -108,6 +107,11 @@ MemDispatchDeviceControl(
 			HANDLE_IOCTL(select_target_process_request, req, outLen, status, info);
 			break;
         }
+        case IOCTL_SET_DRIVER_SETTINGS:
+		{
+			HANDLE_IOCTL(set_driver_settings_request, req, outLen, status, info);
+			break;
+		}
 
         default:
         {
@@ -162,16 +166,32 @@ DriverEntry(
 
 	status = memory::initialize_constants();
 
-    // hook NtQuerySystemInformation
-    g_oldFunction = memory::ssdt::get_function_by_entry<decltype(NtQuerySystemInformation_hook)>(0x36);
-    memory::ssdt::hook_single_entry(0x36, NtQuerySystemInformation_hook, g_oldFunction);
+    if (!NT_SUCCESS(status))
+    {
+        IoDeleteSymbolicLink(const_cast<UNICODE_STRING*>(&g_SymbolicLink));
+        IoDeleteDevice(deviceObject);
+        return status;
+    }
 
-	if (!NT_SUCCESS(status))
-	{
-		IoDeleteSymbolicLink(const_cast<UNICODE_STRING*>(&g_SymbolicLink));
-		IoDeleteDevice(deviceObject);
-		return status;
-	}
+    o_NtReadFile = memory::ssdt::get_function_by_entry<decltype(NtReadFile_hook)>(memory::CONSTANTS::WIN10::NtReadFile_Index);
+    if (!o_NtReadFile)
+    {
+        ang_debug("Failed to get original NtReadFile function!\n");
+        IoDeleteSymbolicLink(const_cast<UNICODE_STRING*>(&g_SymbolicLink));
+        IoDeleteDevice(deviceObject);
+        return STATUS_NOT_FOUND;
+    }
+
+    ang_debug("Original NtReadFile at: %p\n", o_NtReadFile);
+
+    // Hook the function
+    if (!memory::ssdt::hook_single_entry(memory::CONSTANTS::WIN10::NtReadFile_Index, NtReadFile_hook, o_NtReadFile))
+    {
+        ang_debug("Failed to hook NtReadFile!\n");
+        IoDeleteSymbolicLink(const_cast<UNICODE_STRING*>(&g_SymbolicLink));
+        IoDeleteDevice(deviceObject);
+        return STATUS_UNSUCCESSFUL;
+    }
 
     DriverObject->MajorFunction[IRP_MJ_CREATE] = MemDispatchCreateClose;
     DriverObject->MajorFunction[IRP_MJ_CLOSE] = MemDispatchCreateClose;

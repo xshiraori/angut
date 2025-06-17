@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35931.197 d17.13
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "angut", "angut\angut.vcxproj", "{31FB7247-8A1E-CEDE-F239-D164FC895448}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "angut_test", "angut_test\angut_test.vcxproj", "{46810FC1-FE3F-46C4-9856-6E8A2E3ABCB3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "angut_api", "angut_api\angut_api.vcxproj", "{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -35,6 +37,14 @@ Global
 		{46810FC1-FE3F-46C4-9856-6E8A2E3ABCB3}.Release|ARM64.Build.0 = Release|x64
 		{46810FC1-FE3F-46C4-9856-6E8A2E3ABCB3}.Release|x64.ActiveCfg = Release|x64
 		{46810FC1-FE3F-46C4-9856-6E8A2E3ABCB3}.Release|x64.Build.0 = Release|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Debug|ARM64.ActiveCfg = Debug|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Debug|ARM64.Build.0 = Debug|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Debug|x64.ActiveCfg = Debug|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Debug|x64.Build.0 = Debug|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Release|ARM64.ActiveCfg = Release|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Release|ARM64.Build.0 = Release|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Release|x64.ActiveCfg = Release|x64
+		{464004C1-37C8-4A7E-87EF-ED372FB0B2A3}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

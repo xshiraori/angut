@@ -2,7 +2,8 @@
 
 namespace memory::ssdt
 {
-    bool is_suitable_cave_simple(ULONG_PTR addr, SIZE_T size) {
+    bool is_suitable_cave_simple(ULONG_PTR addr, SIZE_T size) 
+    {
         PUCHAR bytes = reinterpret_cast<PUCHAR>(addr);
 
         for (SIZE_T i = 0; i < size; i++) 
@@ -35,8 +36,16 @@ namespace memory::ssdt
         return service_table->Base;  // Return the actual service table base
     }
 
-    PVOID find_code_cave_from_first_syscall(SIZE_T required_size) {
-        auto service_table_base = reinterpret_cast<std::uint64_t>(get_service_table_base());  // Get actual base
+    PVOID find_code_cave_from_first_syscall(SIZE_T required_size) 
+    {
+        auto service_table_base = reinterpret_cast<std::uint64_t>(get_service_table_base());
+		
+        if (!service_table_base)
+		{
+			ang_debug("Failed to get service table base!\n");
+			return nullptr;
+		}
+
         auto first_entry = get_system_service_table_entry(0);
         auto first_syscall_addr = service_table_base + first_entry->bits.Offset;
 
@@ -64,19 +73,43 @@ namespace memory::ssdt
 
     PVOID write_trampoline_into_cave(PVOID target_function)
     {
-        memory::disable_wp();
-
         PUCHAR trampoline = reinterpret_cast<PUCHAR>(find_code_cave_from_first_syscall(12));
-        if (!trampoline) return nullptr;
+        if (!trampoline) {
+            ang_debug("No suitable code cave found\n");
+            return nullptr;
+        }
 
-        trampoline[0] = 0x48;   // REX.W prefix
-        trampoline[1] = 0xB8;   // mov rax, imm64
-        *reinterpret_cast<PULONG_PTR>(&trampoline[2]) = reinterpret_cast<ULONG_PTR>(target_function);
-        trampoline[10] = 0xFF;  // jmp rax
-        trampoline[11] = 0xE0;
+        ang_debug("Code cave found at %p\n", trampoline);
 
-        memory::enable_wp();
-        return reinterpret_cast<PVOID>(trampoline);
+        // Verify the cave is really empty
+        ang_debug("Cave contents before write: ");
+        for (int i = 0; i < 12; i++) {
+            ang_debug("%02X ", trampoline[i]);
+        }
+        ang_debug("\n");
+
+        // Prepare shellcode
+        UCHAR shellcode[12];
+        shellcode[0] = 0x48;
+        shellcode[1] = 0xB8;
+        *reinterpret_cast<PULONG_PTR>(&shellcode[2]) = reinterpret_cast<ULONG_PTR>(target_function);
+        shellcode[10] = 0xFF;
+        shellcode[11] = 0xE0;
+
+        NTSTATUS status = memory::map_and_write(trampoline, shellcode, sizeof(shellcode));
+        if (!NT_SUCCESS(status)) {  // <-- Fix here!
+            ang_debug("Failed to write trampoline: 0x%08X\n", status);
+            return nullptr;
+        }
+
+        // Verify write succeeded
+        ang_debug("Cave contents after write: ");
+        for (int i = 0; i < 12; i++) {
+            ang_debug("%02X ", trampoline[i]);
+        }
+        ang_debug("\n");
+
+        return trampoline;
     }
 
     PKSERVICE_TABLE_DESCRIPTOR_ENTRY get_system_service_table_entry(std::uint32_t index)
@@ -110,7 +143,7 @@ namespace memory::ssdt
         ))
         {
             ang_debug("Failed to locate service table address!\n");
-            return false;
+            return 0;  // Should be 0, not false
         }
 
         auto service_table_address = system_service_repeat + *reinterpret_cast<std::uint32_t*>(system_service_repeat + 3) + 7;
@@ -118,11 +151,19 @@ namespace memory::ssdt
 
         if (new_function)
         {
-            disable_wp();
-            auto old = service_table->Base[index].bits.Offset;
-            service_table->Base[index].bits.Offset = static_cast<std::uint32_t>((new_function - reinterpret_cast<std::uint64_t>(service_table->Base)));
-            enable_wp();
-            return reinterpret_cast<std::uint64_t>(service_table->Base) + old;
+            std::uint64_t original_function = service_table->Base[index].bits.Offset;
+            KSERVICE_TABLE_DESCRIPTOR_ENTRY original_entry = service_table->Base[index];
+            original_entry.bits.Offset = static_cast<std::uint32_t>((new_function - reinterpret_cast<std::uint64_t>(service_table->Base)));
+
+            NTSTATUS status = memory::map_and_write(&service_table->Base[index], &original_entry, sizeof(original_entry));
+            if (!NT_SUCCESS(status))
+            {
+                ang_debug("Failed to write SSDT entry: 0x%08X\n", status);
+                return 0;
+            }
+
+            ang_debug("Successfully updated SSDT entry %d\n", index);
+            return reinterpret_cast<std::uint64_t>(service_table->Base) + original_function;
         }
 
         return 0;
@@ -134,6 +175,7 @@ namespace memory::ssdt
     {
 		if (index >= 0x1000 || !hook || !original)
 		{
+            ang_debug("Invalid parameters for hooking SSDT entry %x: hook=%p, original=%p\n", index, hook, original);
 			return false;
 		}
 
@@ -147,15 +189,29 @@ namespace memory::ssdt
 		set_system_service_table_entry(index, reinterpret_cast<std::uint64_t>(trampoline));
         auto& hm = ssdt_hook_manager::get_instance();
         hm.add_hook(index, hook, original, trampoline);
+
+		ang_debug("Hooked SSDT entry %x with hook at %p and original function at %p\n", index, hook, original);
+        return true;
     }
 
     void cleanup()
     {
-		auto& hm = ssdt_hook_manager::get_instance();
+        auto& hm = ssdt_hook_manager::get_instance();
         do {
-			ssdt_hook_manager::ssdt_hook hook;
-			bool removed = hm.pop_from_back(hook);
-			if (!removed) break;
+            ssdt_hook_manager::ssdt_hook hook;
+            bool removed = hm.pop_from_back(hook);
+            if (!removed)
+            {
+                break;
+            }
+
+            UCHAR zero_bytes[12] = { 0 };
+            NTSTATUS status = memory::map_and_write(hook.trampoline_function, zero_bytes, 12);
+            if (!NT_SUCCESS(status)) 
+            {
+                ang_debug("Failed to zero trampoline at %p: 0x%08X\n",
+                    hook.trampoline_function, status);
+            }
 
             set_system_service_table_entry(hook.index, reinterpret_cast<std::uint64_t>(hook.original_function));
         } while (true);

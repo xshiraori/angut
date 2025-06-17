@@ -31,7 +31,13 @@ namespace ioctl::handler {
             return;
         }
 
-        status = memory::process::write_memory(IoGetCurrentProcess(), req->Buffer, targetProcess, req->Address, req->Size);
+        status = memory::process::write_memory(
+            targetProcess,  
+            req->Address,
+            IoGetCurrentProcess(), 
+            req->Buffer, 
+            req->Size
+        );
         ObDereferenceObject(targetProcess);
     }
 
@@ -50,7 +56,13 @@ namespace ioctl::handler {
             return;
         }
 
-        status = memory::process::read_memory(targetProcess, req->Address, IoGetCurrentProcess(), req->Buffer, req->Size);
+        status = memory::process::read_memory(
+            IoGetCurrentProcess(),
+            req->Buffer, 
+            targetProcess, 
+            req->Address, 
+            req->Size
+        );
         ObDereferenceObject(targetProcess);
     }
 }

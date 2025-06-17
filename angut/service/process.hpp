@@ -1,6 +1,16 @@
 ﻿#pragma once
 #include <ntifs.h>
 #include <cstdint>
+#include "nt_internals.hpp"
+
+static bool is_chosen_target(PEPROCESS process)
+{
+    if (!process)
+        return false;
+
+    const char* current_process_name = PsGetProcessImageFileName(process);
+    return strstr(current_process_name, "KnightOnLine") != NULL;
+}
 
 namespace process {
 	NTSTATUS create_handle_for_user(
